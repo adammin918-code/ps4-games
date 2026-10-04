@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>🎮 مكتبة PS4</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#090b0f;color:#eee;font-family:Arial,sans-serif}
+.wrap{max-width:1200px;margin:auto;padding:16px}.top{position:sticky;top:0;z-index:10;background:#090b0fee;padding:12px 0 14px;border-bottom:1px solid #242832;backdrop-filter:blur(8px)}
+h1{margin:0 0 12px;font-size:26px}.bar{display:flex;gap:8px;flex-wrap:wrap}
+input{flex:1;min-width:220px;padding:14px;border-radius:10px;border:1px solid #333;background:#15181e;color:#fff;font-size:16px;outline:none}
+input:focus{border-color:#4b8cff}.info{margin-top:9px;color:#aaa;font-size:13px}.status{margin-top:9px;padding:10px;border-radius:9px;background:#11151b;color:#bbb;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:16px}
+.card{background:#13171d;border:1px solid #292e37;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;min-height:335px}
+.cover{width:100%;height:245px;object-fit:cover;background:#0e1116;display:block}.body{padding:12px;display:flex;flex-direction:column;gap:8px;flex:1}
+.name{font-size:16px;font-weight:700;line-height:1.35}.pkg{font-size:12px;color:#999;min-height:17px}.btn{margin-top:auto;width:100%;padding:12px;border:0;border-radius:9px;background:#287cff;color:#fff;font-size:15px;font-weight:700;cursor:pointer}.btn:disabled{background:#333842;color:#888;cursor:not-allowed}
+.empty{text-align:center;color:#888;padding:40px}.small{font-size:12px;color:#777;margin-top:6px}
+@media(max-width:600px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.cover{height:210px}.card{min-height:300px}.name{font-size:14px}h1{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>🎮 مكتبة ألعاب PS4</h1>
+    <div class="bar">
+      <input id="ip" value="192.168.1.11" placeholder="IP الـPS4 مثل 192.168.1.11" inputmode="decimal">
+      <input id="search" placeholder="🔎 ابحث عن لعبة..." autocomplete="off">
+    </div>
+    <div class="info">RPI: المنفذ 12800 — اختر لعبة ثم اضغط «إرسال للـPS4».</div>
+    <div id="status" class="status">جاري تحميل مكتبة الألعاب...</div>
+  </header>
+  <main id="grid" class="grid"></main>
+</div>
+
+<script>
+'use strict';
+const DEFAULT_IP='192.168.1.11';
+let games=[];
+const grid=document.getElementById('grid');
+const search=document.getElementById('search');
+const ip=document.getElementById('ip');
+const status=document.getElementById('status');
+
+ip.value=localStorage.getItem('ps4ip') || DEFAULT_IP;
+ip.addEventListener('change',()=>localStorage.setItem('ps4ip',ip.value.trim()));
+ip.addEventListener('input',()=>localStorage.setItem('ps4ip',ip.value.trim()));
+
+function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function fileName(name){return String(name).replace(/[\\/:*?"<>|]/g,'_').replace(/[™®]/g,'').trim();}
+function fallback(name){
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"><rect width="100%" height="100%" fill="#11151b"/><text x="50%" y="46%" text-anchor="middle" fill="#aaa" font-size="34" font-family="Arial">'+esc(name).slice(0,28)+'</text><text x="50%" y="53%" text-anchor="middle" fill="#666" font-size="20" font-family="Arial">PS4</text></svg>';
+  return 'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg);
+}
+function imageFor(g){
+  if(g.image) return g.image;
+  return 'images/'+fileName(g.name)+'.jpg';
+}
+
+function render(){
+  const q=search.value.trim().toLowerCase();
+  const list=games.filter(g=>String(g.name||'').toLowerCase().includes(q));
+  status.textContent=list.length+' لعبة';
+  grid.innerHTML='';
+  if(!list.length){grid.innerHTML='<div class="empty">ماكو ألعاب مطابقة.</div>';return;}
+  for(const g of list){
+    const card=document.createElement('article');card.className='card';
+    const img=document.createElement('img');img.className='cover';img.alt='غلاف '+g.name;img.src=imageFor(g);
+    img.onerror=()=>{if(img.src!==fallback(g.name))img.src=fallback(g.name);};
+    const body=document.createElement('div');body.className='body';
+    const name=document.createElement('div');name.className='name';name.textContent=g.name;
+    const pkg=document.createElement('div');pkg.className='pkg';pkg.textContent=g.pkg?'PKG جاهز':'PKG غير مضاف';
+    const btn=document.createElement('button');btn.className='btn';btn.textContent=g.pkg?'📡 إرسال للـPS4':'PKG غير مضاف';btn.disabled=!g.pkg;
+    btn.onclick=()=>install(g.pkg,g.name,btn);
+    body.append(name,pkg,btn);card.append(img,body);grid.append(card);
+  }
+}
+
+async function install(pkg,name,btn){
+  const addr=ip.value.trim().replace(/^https?:\\/\\//,'').replace(/\\/$/,'');
+  if(!addr){alert('دخل IP الـPS4 أولاً');return;}
+  if(!pkg){alert('ماكو رابط PKG لهذه اللعبة');return;}
+  const old=btn.textContent;btn.disabled=true;btn.textContent='⏳ جاري الإرسال...';
+  status.textContent='جاري إرسال '+name+' إلى RPI...';
+  try{
+    const res=await fetch('http://'+addr+':12800/api/install',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'direct',packages:[pkg]})
+    });
+    const text=await res.text();
+    if(!res.ok) throw new Error('HTTP '+res.status+' '+text);
+    status.textContent='✅ تم إرسال الطلب: '+name;
+    alert('✅ تم إرسال '+name+' إلى RPI');
+  }catch(e){
+    console.error(e);
+    status.textContent='❌ فشل الإرسال إلى RPI';
+    alert('❌ ما قدرنا نرسل الطلب إلى RPI. إذا الموقع مفتوح من HTTPS مثل GitHub Pages، قد يمنع متصفح الـPS4 طلب HTTP إلى المنفذ 12800. جرّب الصفحة من عنوان HTTP محلي على نفس الشبكة.');
+  }finally{btn.disabled=!pkg;btn.textContent=old;}
+}
+
+fetch('games.json',{cache:'no-store'})
+.then(r=>{if(!r.ok)throw new Error('games.json HTTP '+r.status);return r.json();})
+.then(data=>{games=Array.isArray(data)?data:[];render();})
+.catch(e=>{console.error(e);status.textContent='❌ تعذر تحميل games.json';grid.innerHTML='<div class="empty">تأكد أن index.html و games.json بنفس المجلد.</div>';});
+search.addEventListener('input',render);
+</script>
+</body>
+</html>
