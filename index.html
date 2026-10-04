@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PS4 Test Store</title>
+<style>
+body{margin:0;background:#0b0e14;color:#fff;font-family:Arial;padding:24px}
+h1{text-align:center;color:#39a9ff}
+.grid{max-width:1000px;margin:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:18px}
+.card{background:#151a24;border:1px solid #293142;border-radius:14px;overflow:hidden;cursor:pointer}
+.card:hover{border-color:#39a9ff}
+.cover{width:100%;height:280px;object-fit:cover;display:block}
+.name{text-align:center;padding:14px 8px;font-weight:bold}
+.modal{display:none;position:fixed;inset:0;background:#000d;align-items:center;justify-content:center;padding:20px}
+.box{width:min(420px,100%);background:#171d29;border-radius:16px;padding:22px;text-align:center}
+button{width:100%;border:0;border-radius:10px;padding:14px;margin-top:10px;font-size:16px;font-weight:bold;color:#fff}
+.install{background:#087fe5}.close{background:#4b5568}
+#status{margin-top:16px;min-height:24px}
+</style>
+</head>
+<body>
+<h1>🎮 PS4 Test Store</h1>
+<div class="grid" id="grid"></div>
+<div class="modal" id="modal">
+<div class="box">
+<h2 id="title"></h2>
+<button class="install" id="install">تثبيت Base</button>
+<button class="close" id="close">إلغاء</button>
+<div id="status"></div>
+</div>
+</div>
+<script>
+const RPI="http://192.168.1.11:12800/api/install";
+let selected=null;
+async function load(){
+ const r=await fetch("games.json?v="+Date.now(),{cache:"no-store"});
+ const games=await r.json();
+ const grid=document.getElementById("grid");
+ games.forEach(g=>{
+  const c=document.createElement("div"); c.className="card";
+  c.innerHTML='<img class="cover"><div class="name"></div>';
+  c.querySelector("img").src=g.image;
+  c.querySelector(".name").textContent=g.name;
+  c.onclick=()=>{selected=g;document.getElementById("title").textContent=g.name;document.getElementById("status").textContent="";document.getElementById("modal").style.display="flex"};
+  grid.appendChild(c);
+ });
+}
+document.getElementById("close").onclick=()=>document.getElementById("modal").style.display="none";
+document.getElementById("install").onclick=async()=>{
+ if(!selected?.base)return;
+ const s=document.getElementById("status"); s.textContent="⏳ جاري الإرسال...";
+ try{
+  const r=await fetch(RPI,{method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({type:"direct",packages:[selected.base]})});
+  s.textContent=r.ok?"✅ تم إرسال الطلب إلى RPI":"⚠️ RPI رد: "+r.status;
+ }catch(e){s.textContent="❌ تعذر الاتصال بـ RPI";}
+};
+load().catch(()=>document.getElementById("grid").innerHTML="<p>❌ تعذر تحميل games.json</p>");
+</script>
+</body>
+</html>
