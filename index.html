@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>مكتبة ألعاب PS4</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#10131a;color:#fff;font-family:Arial,sans-serif}
+header{position:sticky;top:0;z-index:5;background:#171b24;padding:18px;border-bottom:1px solid #2b3240}
+h1{text-align:center;margin:0 0 12px;font-size:28px}#search{display:block;width:min(700px,100%);margin:auto;padding:14px 16px;border:0;border-radius:10px;font-size:18px}
+#status{text-align:center;color:#b9c2d0;padding:16px}#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px;padding:18px;max-width:1400px;margin:auto}
+.card{background:#1a1f29;border:1px solid #2a3240;border-radius:14px;overflow:hidden}.cover{width:100%;height:245px;object-fit:cover;background:#252b36;display:block}
+.info{padding:12px}.name{font-weight:bold;font-size:16px;line-height:1.4;min-height:45px}.badge{display:inline-block;margin-top:9px;padding:5px 8px;border-radius:7px;font-size:12px;background:#303846;color:#dce3ee}
+.empty{grid-column:1/-1;text-align:center;padding:40px;color:#aeb8c7}
+</style></head>
+<body>
+<header><h1>🎮 مكتبة ألعاب PS4</h1><input id="search" type="search" placeholder="🔎 ابحث عن لعبة..."></header>
+<div id="status">جاري تحميل مكتبة الألعاب...</div><main id="grid"></main>
+<script>
+const grid=document.getElementById('grid'),statusBox=document.getElementById('status'),search=document.getElementById('search');
+let games=[];
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function slug(s){return String(s??'').replace(/[™®©]/g,'').replace(/[<>:"/\\|?*]/g,'').replace(/\s+/g,' ').trim()}
+function fallback(name){
+ const svg='<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"><rect width="100%" height="100%" fill="#252b36"/><text x="50%" y="48%" fill="white" font-size="34" text-anchor="middle" font-family="Arial" dominant-baseline="middle">'+esc(String(name??'').slice(0,28))+'</text><text x="50%" y="55%" fill="#9aa5b5" font-size="20" text-anchor="middle" font-family="Arial">PS4</text></svg>';
+ return 'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg)
+}
+function candidates(g){const n=slug(g.name);const e=encodeURIComponent(n);return [g.image||'',`images/${e}.jpg`,`images/${e}.jpeg`,`images/${e}.png`,`images/${n}.jpg`,`images/${n}.png`].filter(Boolean)}
+function cover(img,a,i,n){if(i>=a.length){img.src=fallback(n);return}img.onerror=()=>cover(img,a,i+1,n);img.src=a[i]}
+function render(){
+ const q=search.value.trim().toLowerCase(),list=games.filter(g=>String(g.name||'').toLowerCase().includes(q));
+ statusBox.textContent=list.length+' لعبة';grid.innerHTML='';
+ if(!list.length){grid.innerHTML='<div class="empty">ماكو ألعاب مطابقة للبحث.</div>';return}
+ const f=document.createDocumentFragment();
+ list.forEach(g=>{const c=document.createElement('article');c.className='card';const i=document.createElement('img');i.className='cover';i.alt=g.name||'PS4';cover(i,candidates(g),0,g.name);
+ const inf=document.createElement('div');inf.className='info';const n=document.createElement('div');n.className='name';n.textContent=g.name||'بدون اسم';
+ const b=document.createElement('span');b.className='badge';b.textContent=g.image?'🖼️ غلاف مرتبط':'🖼️ الغلاف من مجلد images';inf.append(n,b);c.append(i,inf);f.append(c)});grid.append(f)
+}
+async function load(){
+ try{
+  const r=await fetch('games.json?v='+Date.now(),{cache:'no-store'});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const d=await r.json();if(!Array.isArray(d))throw new Error('games.json ليس Array');
+  games=d.filter(g=>g&&typeof g.name==='string'&&g.name.trim());render();
+ }catch(e){
+  console.error(e);statusBox.innerHTML='❌ ما قدرت أقرأ <b>games.json</b><br><small>خلي index.html و games.json بنفس مجلد Root في GitHub.</small>';
+ }
+}
+search.addEventListener('input',render);load();
+</script></body></html>
